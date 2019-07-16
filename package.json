@@ -19,6 +19,8 @@
     "@aws-cdk/aws-codebuild": "^1.0.0",
     "@aws-cdk/aws-codepipeline": "^1.0.0",
     "@aws-cdk/aws-codepipeline-actions": "^1.0.0",
+    "@aws-cdk/aws-ecs": "^1.0.0",
+    "@aws-cdk/aws-ecs-patterns": "^1.0.0",
     "@aws-cdk/aws-sqs": "^1.0.0",
     "@aws-cdk/core": "^1.0.0",
     "source-map-support": "^0.5.9"
