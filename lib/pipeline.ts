@@ -2,7 +2,7 @@ import cp = require('@aws-cdk/aws-codepipeline');
 import cpa = require('@aws-cdk/aws-codepipeline-actions');
 import cb = require('@aws-cdk/aws-codebuild');
 import iam = require('@aws-cdk/aws-iam');
-import { SecretValue, Construct, Stack, StackProps } from '@aws-cdk/core';
+import { SecretValue, Construct, Stack, StackProps, Environment } from '@aws-cdk/core';
 import { PolicyStatement } from '@aws-cdk/aws-iam';
 
 export class PipelineStack extends Stack {
@@ -44,16 +44,18 @@ export class PipelineStack extends Stack {
       ],
     });
 
-    // pipeline.addStage({
-    //   stageName: 'pipeline',
-    //   actions: [
-    //     new cpa.CodeBuildAction({
-    //       actionName: 'deploy-pipeline',
-    //       input: assembly,
-    //       project: new DeployProject(this, 'deploy-pipeline', { stackName: 'pipeline' })
-    //     })
-    //   ]
-    // });
+    pipeline.addStage({
+      stageName: 'pipeline',
+      actions: [
+        new cpa.CodeBuildAction({
+          actionName: 'deploy-pipeline',
+          input: assembly,
+          project: new DeployProject(this, 'deploy-pipeline', {
+            stackName: this.stackName
+          })
+        })
+      ]
+    });
 
     pipeline.addStage({
       stageName: 'deploy',
@@ -61,19 +63,23 @@ export class PipelineStack extends Stack {
         new cpa.CodeBuildAction({
           actionName: 'deploy-CdkcdTestStack1',
           input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack1', { stackName: 'CdkcdTestStack1' })
+          project: new DeployProject(this, 'deploy-CdkcdTestStack1', {
+            stackName: 'CdkcdTestStack1'
+          })
         }),
         new cpa.CodeBuildAction({
           actionName: 'deploy-CdkcdTestStack2',
           input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack2', { stackName: 'CdkcdTestStack2' })
+          project: new DeployProject(this, 'deploy-CdkcdTestStack2', {
+            stackName: 'CdkcdTestStack2'
+          })
         }),
         new cpa.CodeBuildAction({
           actionName: 'deploy-CdkcdTestStack3',
           input: assembly,
           project: new DeployProject(this, 'deploy-CdkcdTestStack3', {
             stackName: 'CdkcdTestStack3',
-            role: iam.Role.fromRoleArn(this, 'cross-account', 'arn:aws:iam::138197434366:role/aws-cdk-deployment')
+            env: { account: '138197434366' }
           })
         })
       ]
@@ -84,7 +90,7 @@ export class PipelineStack extends Stack {
 interface DeployProjectProps {
   readonly stackName: string;
   readonly frameworkVersion?: string;
-  readonly role?: iam.IRole;
+  readonly env?: Environment;
 }
 
 const EXTERNAL_ID = 'AWS::CDK::DEPLOY::021D8AD7C55D49598C82ACB6BFC30F1B';
@@ -94,12 +100,17 @@ class DeployProject extends cb.PipelineProject {
     const versionSpec = props.frameworkVersion ? `@${props.frameworkVersion}` : '';
     const assumeRoleCommands = new Array<string>();
 
-    if (props.role) {
+    if (props.env && props.env.account) {
+      const roleArn = `arn:aws:iam::${props.env.account}:role/aws-cdk-deployment`;
       const sessionName = scope.node.uniqueId + '.' + id;
-      assumeRoleCommands.push(`aws sts assume-role --role-arn="${props.role.roleArn}" --role-session-name ${sessionName} --external-id ${EXTERNAL_ID} > /tmp/aws-creds.json`);
+      assumeRoleCommands.push(`aws sts assume-role --role-arn="${roleArn}" --role-session-name ${sessionName} --external-id ${EXTERNAL_ID} > /tmp/aws-creds.json`);
       assumeRoleCommands.push(`export AWS_ACCESS_KEY_ID=$(node -p "require('/tmp/aws-creds.json').Credentials.AccessKeyId")`);
       assumeRoleCommands.push(`export AWS_SECRET_ACCESS_KEY=$(node -p "require('/tmp/aws-creds.json').Credentials.SecretAccessKey")`);
       assumeRoleCommands.push(`export AWS_SESSION_TOKEN=$(node -p "require('/tmp/aws-creds.json').Credentials.SessionToken")`);
+    }
+
+    if (props.env && props.env.region) {
+      assumeRoleCommands.push(`export AWS_REGION=${props.env.region}`);
     }
 
     super(scope, id, {
