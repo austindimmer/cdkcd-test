@@ -69,7 +69,10 @@ class DeployProject extends cb.PipelineProject {
     }
 
     super(scope, id, {
-      environment: { buildImage: cb.LinuxBuildImage.UBUNTU_14_04_NODEJS_10_14_1 },
+      environment: {
+        buildImage: cb.LinuxBuildImage.UBUNTU_14_04_NODEJS_10_14_1,
+        privileged: true // for docker assets
+      },
       buildSpec: cb.BuildSpec.fromObject({
         version: '0.2',
         phases: {
