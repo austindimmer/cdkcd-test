@@ -11,7 +11,7 @@ export class WebApp extends Stack {
     const cluster = new ecs.Cluster(this, 'cluster', { vpc: vpc });
 
     new ecsp.LoadBalancedFargateService(this, 'service', {
-      image: ecs.ContainerImage.fromAsset(__dirname + '../image'),
+      image: ecs.ContainerImage.fromAsset(__dirname + '/../image'),
       cluster: cluster
     });
   }
