@@ -2,10 +2,14 @@ import cp = require('@aws-cdk/aws-codepipeline');
 import cpa = require('@aws-cdk/aws-codepipeline-actions');
 import cb = require('@aws-cdk/aws-codebuild');
 import { SecretValue, Construct, Stack, StackProps } from '@aws-cdk/core';
-import { DeployProject } from './deploy-project';
+import { DeployAction } from './deploy-action';
+
+export interface PipelineStackProps extends StackProps {
+  readonly stacks: Stack[];
+}
 
 export class PipelineStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props: PipelineStackProps) {
     super(scope, id, props);
 
     const pipeline = new cp.Pipeline(this, 'pipeline', {
@@ -46,50 +50,20 @@ export class PipelineStack extends Stack {
     pipeline.addStage({
       stageName: 'pipeline',
       actions: [
-        new cpa.CodeBuildAction({
-          actionName: 'deploy-pipeline',
-          input: assembly,
-          project: new DeployProject(this, 'deploy-pipeline', {
-            stackName: this.stackName
-          })
+        new DeployAction(this, 'deploy-pipeline', {
+          assembly: assembly,
+          stackName: this.stackName
         })
       ]
     });
 
     pipeline.addStage({
       stageName: 'deploy',
-      actions: [
-        new cpa.CodeBuildAction({
-          actionName: 'deploy-CdkcdTestStack1',
-          input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack1', {
-            stackName: 'CdkcdTestStack1'
-          })
-        }),
-        new cpa.CodeBuildAction({
-          actionName: 'deploy-CdkcdTestStack2',
-          input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack2', {
-            stackName: 'CdkcdTestStack2'
-          })
-        }),
-        new cpa.CodeBuildAction({
-          actionName: 'deploy-CdkcdTestStack3',
-          input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack3', {
-            stackName: 'CdkcdTestStack3',
-            env: { account: '138197434366' }
-          })
-        }),
-        new cpa.CodeBuildAction({
-          actionName: 'deploy-CdkcdTestStack4',
-          input: assembly,
-          project: new DeployProject(this, 'deploy-CdkcdTestStack4', {
-            stackName: 'CdkcdTestStack4',
-            env: { account: '138197434366' }
-          })
-        })
-      ]
+      actions: props.stacks.map(stack => new DeployAction(this, `deploy-${stack.stackName}`, {
+        stackName: stack.stackName,
+        env: { account: stack.account, region: stack.region },
+        assembly: assembly,
+      }))
     });
   };
 }
